@@ -1,0 +1,19 @@
+{
+  "usuarios": [
+    { "id": 1, "nombre": "Ana Torres", "usuario": "ana", "password": "1234" },
+    { "id": 2, "nombre": "Luis Gómez", "usuario": "luis", "password": "1234" },
+    { "id": 3, "nombre": "Marta Ríos", "usuario": "marta", "password": "1234" },
+    { "id": 4, "nombre": "Carlos Peña", "usuario": "carlos", "password": "1234" },
+    { "id": 5, "nombre": "Valentina Ruiz", "usuario": "valentina", "password": "1234" },
+    { "id": 6, "nombre": "Andrés Morales", "usuario": "andres", "password": "1234" }
+  ],
+  "cuentas": [
+    { "numero": "0001", "usuario_id": 1, "alias": "Ahorros principal", "tipo": "Ahorros", "moneda": "COP", "estado": "Activa", "saldo": 500000 },
+    { "numero": "0002", "usuario_id": 2, "alias": "Cuenta nómina", "tipo": "Corriente", "moneda": "COP", "estado": "Activa", "saldo": 150000 },
+    { "numero": "0003", "usuario_id": 3, "alias": "Ahorros", "tipo": "Ahorros", "moneda": "COP", "estado": "Activa", "saldo": 0 },
+    { "numero": "0004", "usuario_id": 4, "alias": "Cuenta corriente", "tipo": "Corriente", "moneda": "COP", "estado": "Activa", "saldo": 2350000 },
+    { "numero": "0005", "usuario_id": 4, "alias": "Ahorro viaje", "tipo": "Ahorros", "moneda": "COP", "estado": "Activa", "saldo": 890000 },
+    { "numero": "0006", "usuario_id": 5, "alias": "Ahorros", "tipo": "Ahorros", "moneda": "COP", "estado": "Bloqueada", "saldo": 45000 },
+    { "numero": "0007", "usuario_id": 6, "alias": "Cuenta nómina", "tipo": "Corriente", "moneda": "COP", "estado": "Activa", "saldo": 75000 }
+  ]
+}

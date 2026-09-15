@@ -3,3 +3,9 @@ dist/
 .env
 .env.local
 .vscode/
+
+
+venv/
+__pycache__/
+*.pyc
+auditoria.log
