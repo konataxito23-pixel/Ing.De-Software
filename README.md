@@ -1,50 +1,44 @@
-# Ing.De-Software
+# NEXORA — Frontend Flutter (HU-03 Realizar transferencia)
 
-# API Bancaria Simulada — NEXORA (TAR-02 y TAR-03)
+![CI](https://github.com/konataxito23-pixel/Ing.De-Software/actions/workflows/ci.yml/badge.svg)
 
-## Cómo correrla
-1. Activar entorno virtual: `source venv/bin/activate` (o `venv\Scripts\Activate.ps1` en Windows)
-2. Instalar dependencias: `pip install -r requirements.txt`
-3. Correr: `python app.py`
-4. Servidor disponible en http://127.0.0.1:5000
+App móvil del MVP académico NEXORA (Ingeniería de Software · UPB · 2026-2). Implementa el flujo
+**Login → Dashboard → Nueva transferencia → Comprobante / Error** de la historia **HU-03**.
 
-## Endpoints
+## Requisitos
+- Flutter estable (Dart >= 3.3) — `flutter --version`
+- Android Studio/emulador o Chrome
 
-### GET /cuentas/<usuario_id>
-Devuelve las cuentas del usuario indicado.
-**Requiere** el header `X-User-Id` con el mismo id del usuario consultado, o responde 403.
+## Instalación y ejecución
+```bash
+flutter pub get
+flutter run                      # backend simulado (por defecto)
+flutter run --dart-define=USE_MOCK=false --dart-define=API_BASE_URL=http://10.0.2.2:8080   # backend real
+```
+`10.0.2.2` es el localhost del emulador Android. No hay contraseñas ni `.env` en el repo.
 
-### POST /transferencia
-Simula una transferencia entre dos cuentas.
+## Pruebas
+```bash
+flutter test
+```
+| ID | Criterio | Verifica |
+|----|----------|----------|
+| TEST-01 | CA-01 | Transferencia exitosa: comprobante y saldo descontado |
+| TEST-02 | CA-02 | Saldo insuficiente: rechaza y conserva saldo |
+| TEST-03 | CA-03 | Cuenta destino inválida: rechaza y conserva saldo |
 
-## Usuarios y cuentas de prueba
-| Usuario   | ID | Cuentas          | Saldo               |
-|-----------|----|------------------|---------------------|
-| Ana       | 1  | 0001             | 500.000             |
-| Luis      | 2  | 0002             | 150.000             |
-| Marta     | 3  | 0003             | 0                   |
-| Carlos    | 4  | 0004, 0005       | 2.350.000 / 890.000 |
-| Valentina | 5  | 0006 (bloqueada) | 45.000              |
-| Andrés    | 6  | 0007             | 75.000              |
+## Backend simulado
+Datos de prueba: cuenta origen `100001` (saldo 500.000), destinos válidos `100002`, `200001`, `200002`.
+Reglas NEXORA Shield: NS-01 monto ≤ 0, NS-02 saldo insuficiente, NS-03 destino inválido.
 
-## Escenarios cubiertos en /transferencia
-- Transferencia exitosa
-- Saldo insuficiente (usar cuenta origen 0003)
-- Destino inválido (usar una cuenta destino inexistente, ej: 9999)
-- Transferencia duplicada (reenviar el mismo operacion_id)
+## Contrato con el backend
+`POST /api/transferencias` con `{"cuentaOrigen","cuentaDestino","monto"}`.
+Éxito: `{"estado":"EXITOSA","mensaje":"...","comprobante":"NEX-TRX-000001"}`.
+Rechazo (supuesto, a confirmar con el equipo de backend): HTTP 4xx con `{"estado":"RECHAZADA","mensaje":"..."}`.
 
-## Seguridad (TAR-03)
+## CI
+GitHub Actions (`.github/workflows/ci.yml`) ejecuta `flutter analyze` y `flutter test` en cada push y PR a `main`.
 
-### Autorización
-El endpoint `/cuentas/<usuario_id>` exige un header `X-User-Id` que debe coincidir
-con el usuario consultado. Si no coincide, responde 403 - No autorizado.
-
-Ejemplo en Postman: Headers → Key: `X-User-Id`, Value: `1`
-
-### Auditoría
-Cada consulta de cuentas y cada transferencia queda registrada en `auditoria.log`,
-sin contraseñas ni datos sensibles. Incluye también los intentos de acceso denegado.
-
-### Pendiente (a cargo de Julián / trabajo en pareja)
-- HTTPS/TLS (TAR-03.1)
-- Rate limiting (TAR-03.3)
+## Nota de uso de IA
+Se usó Claude (Anthropic) como apoyo para migrar el frontend de React a Flutter y generar el código base,
+las pruebas y este README. El equipo revisó, ejecutó y es responsable del resultado. *(Ajustar al formato exigido por el curso.)*
