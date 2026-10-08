@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'api.dart';
+import 'sesion.dart';
 
 const _useMock = bool.fromEnvironment('USE_MOCK', defaultValue: true);
 const _baseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://10.0.2.2:8080');
@@ -11,10 +12,23 @@ String _cop(double v) =>
 
 InputDecoration _dec(String label) => InputDecoration(labelText: label, border: const OutlineInputBorder());
 
-class NexoraApp extends StatelessWidget {
+class NexoraApp extends StatefulWidget {
   const NexoraApp({super.key, required this.api});
   final TransferenciaApi api;
+  @override
+  State<NexoraApp> createState() => _NexoraAppState();
+}
 
+class _NexoraAppState extends State<NexoraApp> {
+  final _sesion = SesionController();
+
+  @override
+  void dispose() {
+    _sesion.dispose();
+    super.dispose();
+  }
+
+  // Sin sesión activa solo se puede ver el login (NEXO-77).
   @override
   Widget build(BuildContext context) => MaterialApp(
         title: 'NEXORA',
@@ -24,20 +38,25 @@ class NexoraApp extends StatelessWidget {
           scaffoldBackgroundColor: const Color(0xFFF5F7FA),
           useMaterial3: true,
         ),
-        home: LoginScreen(api: api),
+        home: ListenableBuilder(
+          listenable: _sesion,
+          builder: (_, __) => _sesion.activa
+              ? DashboardScreen(api: widget.api, sesion: _sesion)
+              : LoginScreen(sesion: _sesion),
+        ),
       );
 }
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, required this.api});
-  final TransferenciaApi api;
+  const LoginScreen({super.key, required this.sesion});
+  final SesionController sesion;
   @override
   State<LoginScreen> createState() => _LoginState();
 }
 
 class _LoginState extends State<LoginScreen> {
   final _form = GlobalKey<FormState>();
-  String? _req(String? v) => (v == null || v.trim().isEmpty) ? 'Campo obligatorio' : null;
+  final _correo = TextEditingController();
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -52,18 +71,30 @@ class _LoginState extends State<LoginScreen> {
                   Text('NEXORA',
                       style: Theme.of(context).textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 24),
-                  TextFormField(decoration: _dec('Correo'), validator: _req),
+                  TextFormField(
+                    key: const Key('correo'),
+                    controller: _correo,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: _dec('Correo'),
+                    validator: (v) => (v ?? '').contains('@') ? null : 'Ingresa un correo válido',
+                  ),
                   const SizedBox(height: 12),
-                  TextFormField(decoration: _dec('Contraseña'), obscureText: true, validator: _req),
+                  TextFormField(
+                    key: const Key('clave'),
+                    decoration: _dec('Contraseña'),
+                    obscureText: true,
+                    validator: (v) => (v ?? '').length >= 4 ? null : 'Mínimo 4 caracteres',
+                  ),
                   const SizedBox(height: 20),
-                  FilledButton(
-                    onPressed: () {
-                      if (_form.currentState!.validate()) {
-                        Navigator.pushReplacement(
-                            context, MaterialPageRoute(builder: (_) => DashboardScreen(api: widget.api)));
-                      }
-                    },
-                    child: const Text('Ingresar'),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      key: const Key('ingresar'),
+                      onPressed: () {
+                        if (_form.currentState!.validate()) widget.sesion.iniciar(_correo.text.trim());
+                      },
+                      child: const Text('Ingresar'),
+                    ),
                   ),
                 ]),
               ),
@@ -74,8 +105,9 @@ class _LoginState extends State<LoginScreen> {
 }
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key, required this.api});
+  const DashboardScreen({super.key, required this.api, required this.sesion});
   final TransferenciaApi api;
+  final SesionController sesion;
   @override
   State<DashboardScreen> createState() => _DashState();
 }
@@ -85,8 +117,20 @@ class _DashState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('NEXORA')),
+        appBar: AppBar(
+          title: const Text('NEXORA'),
+          actions: [
+            IconButton(
+              key: const Key('salir'),
+              icon: const Icon(Icons.logout),
+              tooltip: 'Cerrar sesión',
+              onPressed: widget.sesion.cerrar,
+            ),
+          ],
+        ),
         body: ListView(padding: const EdgeInsets.all(16), children: [
+          Text('Hola, ${widget.sesion.usuario}', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 12),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -106,9 +150,12 @@ class _DashState extends State<DashboardScreen> {
             icon: const Icon(Icons.send),
             label: const Text('Nueva transferencia'),
             onPressed: () async {
-              await Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => TransferScreen(api: widget.api, cuentaOrigen: _cuenta)));
-              setState(() {});
+              await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) =>
+                          TransferScreen(api: widget.api, cuentaOrigen: _cuenta, sesion: widget.sesion)));
+              if (mounted) setState(() {});
             },
           ),
         ]),
@@ -116,9 +163,10 @@ class _DashState extends State<DashboardScreen> {
 }
 
 class TransferScreen extends StatefulWidget {
-  const TransferScreen({super.key, required this.api, required this.cuentaOrigen});
+  const TransferScreen({super.key, required this.api, required this.cuentaOrigen, this.sesion});
   final TransferenciaApi api;
   final String cuentaOrigen;
+  final SesionController? sesion;
   @override
   State<TransferScreen> createState() => _TransferState();
 }
@@ -132,12 +180,20 @@ class _TransferState extends State<TransferScreen> {
 
   Future<void> _enviar() async {
     if (!_form.currentState!.validate()) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
     setState(() {
       _cargando = true;
       _res = null;
     });
     final r = await widget.api.transferir(widget.cuentaOrigen, _destino.text.trim(), double.parse(_monto.text.trim()));
     if (!mounted) return;
+    if (r.sesionExpirada && widget.sesion != null) {
+      widget.sesion!.cerrar();
+      nav.popUntil((route) => route.isFirst);
+      messenger.showSnackBar(SnackBar(content: Text(r.mensaje)));
+      return;
+    }
     setState(() {
       _cargando = false;
       _res = r;
@@ -195,7 +251,9 @@ class _TransferState extends State<TransferScreen> {
               leading: Icon(r.exitosa ? Icons.check_circle : Icons.error,
                   color: r.exitosa ? Colors.green : Colors.red),
               title: Text(r.exitosa ? 'Transferencia exitosa' : 'Transferencia rechazada'),
-              subtitle: Text(r.exitosa ? '${r.mensaje}\nComprobante: ${r.comprobante}' : r.mensaje),
+              subtitle: Text(r.exitosa
+                  ? '${r.mensaje}\nComprobante: ${r.comprobante}'
+                  : '${r.mensaje}${r.statusCode == null ? '' : '\nCódigo: ${r.statusCode}'}'),
             ),
           ),
       ]),
