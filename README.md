@@ -40,5 +40,5 @@ Rechazo (supuesto, a confirmar con el equipo de backend): HTTP 4xx con `{"estado
 GitHub Actions (`.github/workflows/ci.yml`) ejecuta `flutter analyze` y `flutter test` en cada push y PR a `main`.
 
 ## Nota de uso de IA
-Se usó Claude (Anthropic) como apoyo para migrar el frontend de React a Flutter y generar el código base,
-las pruebas y este README. El equipo revisó, ejecutó y es responsable del resultado. *(Ajustar al formato exigido por el curso.)*
+Se usó Claude (Anthropic) como apoyo para migrar el frontend de React a Flutter,
+las pruebas y este README. 
