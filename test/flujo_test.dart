@@ -7,6 +7,8 @@ class _ApiSesionVencida implements TransferenciaApi {
   @override
   Future<double?> saldo(String cuenta) async => 500000;
   @override
+  Future<List<Movimiento>> movimientos(String cuenta) async => const [];
+  @override
   Future<TransferenciaResponse> transferir(String o, String d, double m) async => TransferenciaResponse(
       false, mensajeParaEstado(401),
       statusCode: 401, sesionExpirada: true);
@@ -20,7 +22,7 @@ Future<void> _login(WidgetTester t) async {
 }
 
 Future<void> _transferir(WidgetTester t, String destino, String monto) async {
-  await t.tap(find.text('Nueva transferencia'));
+  await t.tap(find.byKey(const Key('accion-transferir')));
   await t.pumpAndSettle();
   await t.enterText(find.byKey(const Key('destino')), destino);
   await t.enterText(find.byKey(const Key('monto')), monto);
@@ -32,15 +34,28 @@ void main() {
   testWidgets('NEXO-121: flujo login → transferencia → saldo actualizado → cerrar sesión', (t) async {
     await t.pumpWidget(NexoraApp(api: MockTransferenciaApi()));
     await _login(t);
-    expect(find.text('\$500.000 COP'), findsOneWidget);
+    expect(find.text('\$ 500.000'), findsOneWidget);
     await _transferir(t, '200001', '150000');
     expect(find.textContaining('NEX-TRX-000001'), findsOneWidget);
     await t.pageBack();
     await t.pumpAndSettle();
-    expect(find.text('\$350.000 COP'), findsOneWidget);
+    expect(find.text('\$ 350.000'), findsOneWidget);
+    await t.tap(find.byKey(const Key('perfil')));
+    await t.pumpAndSettle();
     await t.tap(find.byKey(const Key('salir')));
     await t.pumpAndSettle();
     expect(find.byKey(const Key('ingresar')), findsOneWidget);
+  });
+
+  testWidgets('Diseño: el saldo se oculta con el ojo y se muestran los movimientos', (t) async {
+    await t.pumpWidget(NexoraApp(api: MockTransferenciaApi()));
+    await _login(t);
+    expect(find.text('Hola, Julia'), findsOneWidget);
+    expect(find.text('Transferencia recibida'), findsOneWidget);
+    await t.tap(find.byKey(const Key('ojo')));
+    await t.pumpAndSettle();
+    expect(find.text('\$ 500.000'), findsNothing);
+    expect(find.text('\$ ••••••'), findsOneWidget);
   });
 
   testWidgets('NEXO-77: el login valida correo y contraseña antes de entrar', (t) async {
@@ -49,7 +64,7 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text('Ingresa un correo válido'), findsOneWidget);
     expect(find.text('Mínimo 4 caracteres'), findsOneWidget);
-    expect(find.text('Nueva transferencia'), findsNothing);
+    expect(find.byKey(const Key('accion-transferir')), findsNothing);
   });
 
   testWidgets('NEXO-77/122: sesión expirada (401) cierra sesión y vuelve al login', (t) async {

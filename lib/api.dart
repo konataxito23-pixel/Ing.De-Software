@@ -28,9 +28,19 @@ String mensajeParaEstado(int status, [String? detalle]) {
   return detalle.contains(base) ? detalle : '$base: $detalle';
 }
 
+enum TipoMov { recibida, enviada, pago, tarjeta }
+
+class Movimiento {
+  const Movimiento(this.tipo, this.titulo, this.detalle, this.monto, this.fecha);
+  final TipoMov tipo;
+  final String titulo, detalle, fecha;
+  final double monto; // positivo = ingreso, negativo = egreso
+}
+
 abstract class TransferenciaApi {
   Future<TransferenciaResponse> transferir(String origen, String destino, double monto);
   Future<double?> saldo(String cuenta);
+  Future<List<Movimiento>> movimientos(String cuenta);
 }
 
 /// Cliente real. Éxito = HTTP 2xx; cualquier otro código se traduce con [mensajeParaEstado].
@@ -41,6 +51,9 @@ class HttpTransferenciaApi implements TransferenciaApi {
 
   @override
   Future<double?> saldo(String cuenta) async => null; // el contrato no define consulta de saldo
+
+  @override
+  Future<List<Movimiento>> movimientos(String cuenta) async => const []; // sin endpoint en el contrato
 
   @override
   Future<TransferenciaResponse> transferir(String origen, String destino, double monto) async {
@@ -83,6 +96,14 @@ class MockTransferenciaApi implements TransferenciaApi {
   final Map<String, double> saldos = {'100001': 500000, '100002': 120000};
   final Set<String> destinosValidos = {'100002', '200001', '200002'};
   int _n = 0;
+  final List<Movimiento> _movs = [
+    const Movimiento(TipoMov.recibida, 'Transferencia recibida', 'Karla Restrepo', 250000, 'Hoy, 08:42'),
+    const Movimiento(TipoMov.pago, 'Pago de servicios', 'EPM', -125800, 'Ayer, 16:20'),
+    const Movimiento(TipoMov.tarjeta, 'Compra con tarjeta', 'Éxito Laureles', -89900, 'Ayer, 12:15'),
+  ];
+
+  @override
+  Future<List<Movimiento>> movimientos(String cuenta) async => List.of(_movs);
 
   @override
   Future<double?> saldo(String cuenta) async => saldos[cuenta];
@@ -105,6 +126,7 @@ class MockTransferenciaApi implements TransferenciaApi {
     }
     saldos[origen] = saldos[origen]! - monto;
     if (saldos.containsKey(destino)) saldos[destino] = saldos[destino]! + monto;
+    _movs.insert(0, Movimiento(TipoMov.enviada, 'Transferencia enviada', 'Cuenta $destino', -monto, 'Ahora'));
     return TransferenciaResponse(true, 'Transferencia realizada correctamente',
         comprobante: 'NEX-TRX-${(++_n).toString().padLeft(6, '0')}', statusCode: 200);
   }

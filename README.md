@@ -21,6 +21,8 @@ flutter run --dart-define=USE_MOCK=false --dart-define=API_BASE_URL=http://10.0.
 - **Códigos de error (NEXO-78):** 400 (motivo del servidor), 401, 403 (Shield, con reglas), 404, 409, 503 y 5xx se muestran con un mensaje claro y el código.
 - **Validación en cliente:** monto mayor que cero (NS-01).
 
+- **Diseño:** tema oscuro NEXORA (saludo, tarjeta de cuenta con ojo, accesos rápidos, movimientos, barra inferior). QR Pagar, Tarjetas, Ahorrar, Más, Finanzas, Seguridad y Ver todos son maquetas que muestran "próximamente". Los movimientos del backend simulado son datos de ejemplo; el cliente HTTP real no tiene endpoint de movimientos ni de saldo todavía.
+
 ## Backend simulado
 Cuenta origen `100001` (saldo 500.000); destinos válidos `100002`, `200001`, `200002`.
 Simulaciones: destino `300001` → 403 (Shield, NS-04); `300002` → 503 (Shield no disponible).
