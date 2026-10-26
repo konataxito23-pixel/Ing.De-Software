@@ -1,3 +1,5 @@
-from __future__ import annotations
+"""Application package marker.
 
-__all__ = ["app"]
+The backend app entry point is backend/app/main.py.
+This file intentionally avoids duplicate app bootstrapping.
+"""
