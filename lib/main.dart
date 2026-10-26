@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'api.dart';
 
-const _useMock = bool.fromEnvironment('USE_MOCK', defaultValue: true);
-const _baseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://10.0.2.2:8080');
+const _useMock = bool.fromEnvironment('USE_MOCK', defaultValue: false);
+const _baseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://10.0.2.2:8000');
 
 void main() => runApp(NexoraApp(api: _useMock ? MockTransferenciaApi() : HttpTransferenciaApi(_baseUrl)));
 
@@ -31,13 +31,48 @@ class NexoraApp extends StatelessWidget {
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, required this.api});
   final TransferenciaApi api;
+
   @override
   State<LoginScreen> createState() => _LoginState();
 }
 
 class _LoginState extends State<LoginScreen> {
   final _form = GlobalKey<FormState>();
+  final _email = TextEditingController(text: 'ana@nexora.com');
+  final _password = TextEditingController(text: '123456');
+  bool _cargando = false;
+  String? _error;
+
   String? _req(String? v) => (v == null || v.trim().isEmpty) ? 'Campo obligatorio' : null;
+
+  Future<void> _login() async {
+    if (!_form.currentState!.validate()) return;
+    setState(() {
+      _cargando = true;
+      _error = null;
+    });
+
+    final ok = await widget.api.login(_email.text, _password.text);
+
+    if (!mounted) return;
+
+    if (!ok) {
+      setState(() {
+        _cargando = false;
+        _error = 'Credenciales inválidas';
+      });
+      return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => DashboardScreen(api: widget.api)),
+    );
+
+    setState(() {
+      _cargando = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -52,19 +87,36 @@ class _LoginState extends State<LoginScreen> {
                   Text('NEXORA',
                       style: Theme.of(context).textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 24),
-                  TextFormField(decoration: _dec('Correo'), validator: _req),
-                  const SizedBox(height: 12),
-                  TextFormField(decoration: _dec('Contraseña'), obscureText: true, validator: _req),
-                  const SizedBox(height: 20),
-                  FilledButton(
-                    onPressed: () {
-                      if (_form.currentState!.validate()) {
-                        Navigator.pushReplacement(
-                            context, MaterialPageRoute(builder: (_) => DashboardScreen(api: widget.api)));
-                      }
-                    },
-                    child: const Text('Ingresar'),
+                  TextFormField(
+                    controller: _email,
+                    decoration: _dec('Correo'),
+                    validator: _req,
+                    keyboardType: TextInputType.emailAddress,
                   ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _password,
+                    decoration: _dec('Contraseña'),
+                    obscureText: true,
+                    validator: _req,
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: _cargando ? null : _login,
+                      child: _cargando
+                          ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Text('Ingresar'),
+                    ),
+                  ),
+                  if (_error != null) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      _error!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ],
                 ]),
               ),
             ),
@@ -76,6 +128,7 @@ class _LoginState extends State<LoginScreen> {
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key, required this.api});
   final TransferenciaApi api;
+
   @override
   State<DashboardScreen> createState() => _DashState();
 }
@@ -106,8 +159,10 @@ class _DashState extends State<DashboardScreen> {
             icon: const Icon(Icons.send),
             label: const Text('Nueva transferencia'),
             onPressed: () async {
-              await Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => TransferScreen(api: widget.api, cuentaOrigen: _cuenta)));
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => TransferScreen(api: widget.api, cuentaOrigen: _cuenta)),
+              );
               setState(() {});
             },
           ),
@@ -119,6 +174,7 @@ class TransferScreen extends StatefulWidget {
   const TransferScreen({super.key, required this.api, required this.cuentaOrigen});
   final TransferenciaApi api;
   final String cuentaOrigen;
+
   @override
   State<TransferScreen> createState() => _TransferState();
 }
@@ -136,8 +192,10 @@ class _TransferState extends State<TransferScreen> {
       _cargando = true;
       _res = null;
     });
+
     final r = await widget.api.transferir(widget.cuentaOrigen, _destino.text.trim(), double.parse(_monto.text.trim()));
     if (!mounted) return;
+
     setState(() {
       _cargando = false;
       _res = r;
