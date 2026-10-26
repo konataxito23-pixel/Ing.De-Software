@@ -1,47 +1,36 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import User
-from app.schemas import TokenResponse, UserCreate, UserLogin
-from app.security import create_access_token, hash_password, verify_password
+from app.deps import get_current_user
+from app.models import Account, User
+from app.schemas import AccountOut
 
-router = APIRouter(prefix="/auth", tags=["Auth"])
+router = APIRouter(prefix="/accounts", tags=["Accounts"])
 
 
-@router.post("/register")
-def register_user(payload: UserCreate, db: Session = Depends(get_db)):
-    email = payload.email.strip().lower()
-    existing = db.query(User).filter(User.email == email).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="El correo ya está registrado")
+@router.get("/me", response_model=list[AccountOut])
+def list_my_accounts(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return db.query(Account).filter(Account.user_id == current_user.id).all()
 
-    user = User(
-        name=payload.name.strip(),
-        email=email,
-        password_hash=hash_password(payload.password),
+
+@router.get("/{numero_cuenta}/saldo")
+def get_saldo(
+    numero_cuenta: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    account = (
+        db.query(Account)
+        .filter(Account.numero_cuenta == numero_cuenta, Account.user_id == current_user.id)
+        .first()
     )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    if not account:
+        raise HTTPException(status_code=404, detail="Cuenta no encontrada")
 
-    return {"message": "Usuario creado correctamente", "user_id": user.id}
-
-
-@router.post("/login", response_model=TokenResponse)
-def login(payload: UserLogin, db: Session = Depends(get_db)):
-    email = payload.email.strip().lower()
-    user = db.query(User).filter(User.email == email).first()
-    if not user or not verify_password(payload.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Credenciales inválidas",
-        )
-
-    token = create_access_token(user.email)
-    return TokenResponse(
-        token=token,
-        user={"id": user.id, "name": user.name, "email": user.email},
-    )
+    return {"cuenta": account.numero_cuenta, "saldo": account.saldo}

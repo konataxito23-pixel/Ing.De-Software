@@ -1,90 +1,61 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
-from sqlalchemy import ForeignKey, String, Text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from app.database import Base
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class User(Base):
-    __tablename__ = "users"
-
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    name: Mapped[str] = mapped_column(String(120), nullable=False)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-
-    accounts: Mapped[List["Account"]] = relationship(back_populates="user")
+class UserCreate(BaseModel):
+    name: str = Field(..., min_length=2, max_length=120)
+    email: str = Field(..., min_length=3, max_length=255)
+    password: str = Field(..., min_length=6)
 
 
-class Account(Base):
-    __tablename__ = "accounts"
-
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-    numero_cuenta: Mapped[str] = mapped_column(String(20), unique=True, index=True, nullable=False)
-    tipo_cuenta: Mapped[str] = mapped_column(String(50), default="ahorros")
-    saldo: Mapped[float] = mapped_column(default=0.0)
-    estado: Mapped[str] = mapped_column(String(20), default="ACTIVA")
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-
-    user: Mapped[User] = relationship(back_populates="accounts")
-    transferencias_origen: Mapped[List["Transfer"]] = relationship(
-        foreign_keys="Transfer.cuenta_origen_id",
-        back_populates="cuenta_origen",
-    )
-    transferencias_destino: Mapped[List["Transfer"]] = relationship(
-        foreign_keys="Transfer.cuenta_destino_id",
-        back_populates="cuenta_destino",
-    )
-    movimientos: Mapped[List["Movement"]] = relationship(back_populates="account")
+class UserLogin(BaseModel):
+    email: str
+    password: str
 
 
-class Transfer(Base):
-    __tablename__ = "transfers"
-
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    cuenta_origen_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False)
-    cuenta_destino_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False)
-    monto: Mapped[float] = mapped_column(nullable=False)
-    estado: Mapped[str] = mapped_column(String(30), default="EXITOSA")
-    mensaje: Mapped[str] = mapped_column(String(255), default="Transferencia realizada correctamente")
-    comprobante: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-
-    cuenta_origen: Mapped[Account] = relationship(foreign_keys=[cuenta_origen_id], back_populates="transferencias_origen")
-    cuenta_destino: Mapped[Account] = relationship(foreign_keys=[cuenta_destino_id], back_populates="transferencias_destino")
-    risk_events: Mapped[List["RiskEvent"]] = relationship(back_populates="transfer")
-    movements: Mapped[List["Movement"]] = relationship(back_populates="transfer")
+class TokenResponse(BaseModel):
+    token: str
+    user: dict
 
 
-class Movement(Base):
-    __tablename__ = "movements"
+class AccountOut(BaseModel):
+    id: int
+    numero_cuenta: str
+    tipo_cuenta: str
+    saldo: float
+    estado: str
+    created_at: datetime
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    cuenta_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False)
-    transfer_id: Mapped[Optional[int]] = mapped_column(ForeignKey("transfers.id"), nullable=True)
-    tipo: Mapped[str] = mapped_column(String(30), nullable=False)
-    monto: Mapped[float] = mapped_column(nullable=False)
-    descripcion: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
-
-    account: Mapped[Account] = relationship(back_populates="movimientos")
-    transfer: Mapped[Optional[Transfer]] = relationship(back_populates="movements")
+    model_config = ConfigDict(from_attributes=True)
 
 
-class RiskEvent(Base):
-    __tablename__ = "risk_events"
+class TransferRequest(BaseModel):
+    cuentaOrigen: str
+    cuentaDestino: str
+    monto: float = Field(..., gt=0)
 
-    id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    transfer_id: Mapped[int] = mapped_column(ForeignKey("transfers.id"), nullable=False)
-    score: Mapped[float] = mapped_column(nullable=False)
-    nivel: Mapped[str] = mapped_column(String(20), nullable=False)
-    aprobado: Mapped[bool] = mapped_column(default=True)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 
-    transfer: Mapped[Transfer] = relationship(back_populates="risk_events")
+class TransferResponse(BaseModel):
+    estado: str
+    mensaje: str
+    comprobante: Optional[str] = None
+    saldoActual: Optional[float] = None
+
+
+class RiskRequest(BaseModel):
+    cuentaOrigen: str
+    cuentaDestino: str
+    monto: float = Field(..., gt=0)
+    hora: Optional[str] = None
+    tipoTransaccion: str = "transferencia"
+
+
+class RiskResponse(BaseModel):
+    aprobado: bool
+    score: float
+    nivel: str
+    motivo: str
