@@ -1,10 +1,19 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'api.dart';
 
 const _useMock = bool.fromEnvironment('USE_MOCK', defaultValue: false);
-const _baseUrl = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://10.0.2.2:8000');
 
-void main() => runApp(NexoraApp(api: _useMock ? MockTransferenciaApi() : HttpTransferenciaApi(_baseUrl)));
+const _baseUrl = String.fromEnvironment(
+  'API_BASE_URL',
+  defaultValue: kIsWeb ? 'http://localhost:8000' : 'http://10.0.2.2:8000',
+);
+
+void main() => runApp(
+  NexoraApp(
+    api: _useMock ? MockTransferenciaApi() : HttpTransferenciaApi(_baseUrl),
+  ),
+);
 
 String _cop(double v) =>
     '\$${v.round().toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => '.')} COP';
