@@ -1,15 +1,9 @@
 from __future__ import annotations
 
-import collections
-import collections.abc
 from datetime import datetime, timedelta
 
-# Compatibilidad con Python 3.13 para la librería antigua python-jose
-for _name in ("Mapping", "MutableMapping", "Sequence"):
-    if not hasattr(collections, _name):
-        setattr(collections, _name, getattr(collections.abc, _name))
-
-from jose import JWTError, jwt
+import jwt
+from jwt import InvalidTokenError
 from passlib.context import CryptContext
 
 from app.config import settings
@@ -32,8 +26,14 @@ def create_access_token(subject: str) -> str:
 
 
 def decode_access_token(token: str) -> str:
+    if not token or not isinstance(token, str):
+        raise ValueError("Token inválido o expirado")
+
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        return str(payload["sub"])
-    except JWTError as exc:
+        subject = payload.get("sub")
+        if not subject:
+            raise ValueError("Token sin sub")
+        return str(subject)
+    except (InvalidTokenError, TypeError, ValueError, UnicodeDecodeError, UnicodeEncodeError) as exc:
         raise ValueError("Token inválido o expirado") from exc
