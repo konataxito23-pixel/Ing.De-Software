@@ -1,6 +1,14 @@
 from __future__ import annotations
 
+import collections
+import collections.abc
 from datetime import datetime, timedelta
+
+# Compatibilidad con Python 3.13 para la librería antigua python-jose
+# que aún referencia `collections.Mapping` y `collections.MutableMapping`.
+for _name in ("Mapping", "MutableMapping", "Sequence"):
+    if not hasattr(collections, _name):
+        setattr(collections, _name, getattr(collections.abc, _name))
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
